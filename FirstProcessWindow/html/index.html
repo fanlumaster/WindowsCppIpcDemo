@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dark Chat Input</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body,
+    html {
+      margin: 0;
+      height: 100%;
+      background: #1e1e1e;
+      font-family: Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .input-wrapper {
+      width: 100%;
+      max-width: 800px;
+      position: relative;
+    }
+
+    textarea {
+      width: 100%;
+      resize: none;
+      border: 1px solid #333;
+      background-color: #2b2b2b;
+      color: #f0f0f0;
+      border-radius: 24px;
+      padding: 16px 60px 16px 18px;
+      font-size: 17px;
+      min-height: 120px;
+      max-height: 300px;
+      min-width: 500px;
+      overflow-y: auto;
+      outline: none;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      transition: border 0.2s;
+    }
+
+    textarea:focus {
+      border-color: #555;
+    }
+
+    .send-button {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      background-color: #ffffff;
+      color: rgb(9, 3, 3);
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .send-button:hover {
+      background-color: #0e8e6e;
+    }
+
+    .send-button:active {
+      transform: scale(0.95);
+    }
+
+    /* Optional: send icon via unicode */
+    .send-button::after {
+      content: '➤';
+      transform: translateX(1px);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="input-wrapper">
+    <textarea id="chat-input" rows="1" placeholder="Type your text..."></textarea>
+    <button class="send-button" id="send-button"></button>
+  </div>
+
+  <script>
+    const textarea = document.getElementById('chat-input');
+    const sendButton = document.getElementById('send-button');
+
+    // 自动调整高度
+    textarea.addEventListener('input', () => {
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    });
+
+    // 可选：Enter 发送
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendButton.click();
+      }
+    });
+
+    sendButton.addEventListener('click', () => {
+      const content = textarea.value.trim();
+      if (content) {
+        console.log("发送内容:", content);
+        textarea.value = '';
+        textarea.style.height = 'auto';
+        chrome.webview.postMessage(content);
+      }
+    });
+  </script>
+
+</body>
+
+</html>
