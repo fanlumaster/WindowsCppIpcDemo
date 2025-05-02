@@ -39,7 +39,7 @@ set(SRC_FILES
     "src/my_webveiw.cpp"
 )
 
-set(MY_EXECUTABLE_NAME "Win32WebviewTemplate")
+set(MY_EXECUTABLE_NAME "Win32WebviewTemplate01")
 
 add_executable(${MY_EXECUTABLE_NAME} WIN32
     ${SRC_FILES}

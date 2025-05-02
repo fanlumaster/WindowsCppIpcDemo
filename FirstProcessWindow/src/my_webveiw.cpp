@@ -169,6 +169,42 @@ void RegisterWebMessageHandler(ComPtr<ICoreWebView2> webview)
                 args->TryGetWebMessageAsString(&message);
                 spdlog::info("Received message: {}",
                              wstring_to_string(message.get()));
+
+                // 连接到命名管道
+                HANDLE hPipe = CreateFile(        //
+                    LR"(\\.\pipe\MyPipe)",        // 管道名称
+                    GENERIC_READ | GENERIC_WRITE, // 读写权限
+                    0,                            // 不共享
+                    NULL,                         // 默认安全属性
+                    OPEN_EXISTING,                // 打开已存在的管道
+                    0,                            // 默认属性
+                    NULL                          // 默认模板文件
+                );
+
+                if (hPipe == INVALID_HANDLE_VALUE)
+                {
+                    spdlog::error("Failed to open pipe!");
+                }
+
+                // 发送数据
+                std::wstring cur_message = message.get();
+                DWORD bytesWritten;
+                BOOL writeResult = WriteFile(               //
+                    hPipe,                                  //
+                    cur_message.c_str(),                    //
+                    cur_message.length() * sizeof(wchar_t), //
+                    &bytesWritten,                          //
+                    NULL                                    //
+                );
+                if (!writeResult)
+                {
+                    spdlog::error("Failed to write to pipe!");
+                }
+
+                // 关闭管道
+                CloseHandle(hPipe);
+
+                /*
                 const wchar_t *sharedName = L"Local\\MySharedMemory";
                 const int bufferSize = 1024;
 
@@ -223,6 +259,7 @@ void RegisterWebMessageHandler(ComPtr<ICoreWebView2> webview)
                     spdlog::info("Failed to set event: {}", err);
                 }
                 CloseHandle(hEvent);
+                */
                 return S_OK;
             })
             .Get(),

@@ -22,16 +22,52 @@
 
 using namespace Microsoft::WRL;
 
+HANDLE hPipe;
+
 void EventLoopThread()
 {
-    HANDLE hEvent = OpenEventW(SYNCHRONIZE, // 只需要等待权限
-                               FALSE, L"FanyNamedEvent");
-
-    if (!hEvent)
+    while (true)
     {
-        return;
-    }
+        // 等待客户端连接
+        BOOL connected = ConnectNamedPipe(hPipe, NULL);
+        if (connected)
+        {
+            wchar_t buffer[1024];
+            DWORD bytesRead;
 
+            // 持续读取数据
+            while (true)
+            {
+                // 从管道读取数据
+                BOOL readResult =
+                    ReadFile(hPipe, buffer, sizeof(buffer), &bytesRead, NULL);
+                if (!readResult || bytesRead == 0)
+                {
+                    break; // 连接断开或无数据
+                }
+
+                // 输出接收到的数据
+                spdlog::info(
+                    "Received: {}",
+                    boost::locale::conv::utf_to_utf<std::string::value_type>(
+                        buffer));
+                std::wstring receivedStr(buffer, bytesRead / sizeof(wchar_t));
+                UpdateHtmlContentWithJavaScript(webview, receivedStr);
+            }
+
+            // 关闭当前连接
+            DisconnectNamedPipe(hPipe);
+        }
+        else
+        {
+            spdlog::error("Failed to connect to pipe!");
+        }
+    }
+    //
+    // ==================================================================================
+    //
+
+    /*
     while (true)
     {
         DWORD result = WaitForSingleObject(hEvent, INFINITE);
@@ -70,12 +106,6 @@ void EventLoopThread()
 
             std::wstring receivedStr(received);
             UpdateHtmlContentWithJavaScript(webview, receivedStr);
-            // std::wstring translatedStr =
-            //     boost::locale::conv::utf_to_utf<std::wstring::value_type>(
-            //         tencent_translate(wstring_to_string(receivedStr), "zh",
-            //                           "en"));
-            // spdlog::info("Translated: {}", wstring_to_string(translatedStr));
-            // UpdateHtmlContentWithJavaScript(webview, translatedStr);
 
             // 清理
             UnmapViewOfFile(pBuf);
@@ -89,6 +119,7 @@ void EventLoopThread()
     }
 
     CloseHandle(hEvent);
+    */
 }
 
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam,
@@ -210,39 +241,28 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance,
     PrepareWindowHtml();
     InitWebview(hWnd);
 
-    // 打开已存在的共享内存（宽字符版本）
-    const wchar_t *sharedName = L"Local\\MySharedMemory";
-    const int bufferSize = 1024;
-    HANDLE hMapFile = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, sharedName);
-    if (!hMapFile)
+    //
+    // Ipc
+    //
+    // 创建命名管道
+    ::hPipe = CreateNamedPipe(
+        LR"(\\.\pipe\MyPipe)",                           // 管道名称
+        PIPE_ACCESS_DUPLEX,                              // 双向管道
+        PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, // 数据传输模式
+        1,                                               // 最大实例数
+        1024,                                            // 输出缓冲区大小
+        1024,                                            // 输入缓冲区大小
+        0,                                               // 默认超时时间
+        NULL                                             // 默认安全属性
+    );
+
+    if (hPipe == INVALID_HANDLE_VALUE)
     {
-        DWORD err = GetLastError();
-        wchar_t buf[256];
-        swprintf(buf, 256, L"OpenFileMapping failed with error: %lu", err);
-        MessageBoxW(NULL, buf, L"Error", MB_OK);
+        // TODO: log
         return 1;
     }
 
-    // 映射视图
-    void *pBuf = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, bufferSize);
-    if (!pBuf)
-    {
-        DWORD err = GetLastError();
-        wchar_t buf[256];
-        CloseHandle(hMapFile);
-    }
-
-    // 读取数据
-    wchar_t *received = static_cast<wchar_t *>(pBuf);
-    spdlog::info(
-        "Received: {}",
-        boost::locale::conv::utf_to_utf<std::string::value_type>(received));
-    // 清理
-    UnmapViewOfFile(pBuf);
-    CloseHandle(hMapFile);
-
     std::thread listener(EventLoopThread);
-    listener.detach();
 
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
@@ -250,6 +270,10 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_ HINSTANCE hPrevInstance,
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+    listener.join();
+    // 关闭管道
+    CloseHandle(hPipe);
 
     return (int)msg.wParam;
 }

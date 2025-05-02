@@ -45,7 +45,7 @@ set(SRC_FILES
     "src/translate_api.cpp"
 )
 
-set(MY_EXECUTABLE_NAME "Win32WebviewTemplate")
+set(MY_EXECUTABLE_NAME "Win32WebviewTemplate02")
 
 add_executable(${MY_EXECUTABLE_NAME} WIN32
     ${SRC_FILES}
